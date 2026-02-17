@@ -4,7 +4,7 @@ import {
   Scissors, User, Calendar, DollarSign, Settings, 
   LayoutDashboard, Users, ShoppingBag, Plus, Trash2, 
   CheckCircle, Clock, Search, LogOut, ChevronRight,
-  Menu, X, Printer, TrendingUp, Filter, Home
+  Menu, X, Printer, TrendingUp, Filter, Home, Wallet
 } from 'lucide-react';
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
 import { getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy, where, writeBatch } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
@@ -76,15 +76,19 @@ const App = () => {
     const [selectedStylist, setSelectedStylist] = useState('');
     const [showInvoice, setShowInvoice] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
     
     const [services] = useCollection('services');
     const [staff] = useCollection('staff');
     const [sales] = useCollection('sales');
+    const [expenses] = useCollection('expenses'); // New Hook
 
     const today = new Date().toISOString().split('T')[0];
     const todaysSales = sales.filter(s => s.date === today);
+    const todaysExpenses = expenses.filter(e => e.date === today);
+    
     const totalRevenue = todaysSales.reduce((sum, s) => sum + s.total, 0);
+    const totalExpenseAmount = todaysExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const netProfit = totalRevenue - totalExpenseAmount;
 
     const addToCart = (service) => setCart([...cart, service]);
     const removeFromCart = (index) => setCart(cart.filter((_, i) => i !== index));
@@ -116,10 +120,25 @@ const App = () => {
         }
     };
 
+    // NEW: Handle Expense
+    const handleAddExpense = (e) => {
+        e.preventDefault();
+        const { name, amount } = e.target.elements;
+        if(name.value && amount.value) {
+            addDoc(collection(db, DB_PREFIX + 'expenses'), { 
+                description: name.value, 
+                amount: Number(amount.value), 
+                date: today,
+                createdAt: new Date().toISOString() 
+            });
+            e.target.reset();
+        }
+    };
+
     const filteredServices = services.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const NavItem = ({ id, icon: Icon, label }) => (
-        <button onClick={() => { setView(id); setIsMenuOpen(false); }} className={`w-full flex flex-col md:flex-row items-center md:gap-3 p-2 md:px-4 md:py-3 rounded-xl transition-all ${view === id ? 'text-yellow-500 font-bold bg-slate-800/50' : 'text-slate-400 hover:text-slate-200'}`}>
+        <button onClick={() => { setView(id); }} className={`w-full flex flex-col md:flex-row items-center md:gap-3 p-2 md:px-4 md:py-3 rounded-xl transition-all ${view === id ? 'text-yellow-500 font-bold bg-slate-800/50' : 'text-slate-400 hover:text-slate-200'}`}>
             <Icon size={24} className="mb-1 md:mb-0" />
             <span className="text-[10px] md:text-sm font-medium">{label}</span>
         </button>
@@ -144,6 +163,7 @@ const App = () => {
                 </div>
                 <NavItem id="pos" icon={Scissors} label="Service" />
                 <NavItem id="dashboard" icon={LayoutDashboard} label="Stats" />
+                <NavItem id="expenses" icon={Wallet} label="Expenses" />
                 <NavItem id="manage" icon={Settings} label="Manage" />
             </nav>
 
@@ -170,7 +190,7 @@ const App = () => {
                             </div>
                         </div>
 
-                        {/* CART DRAWER (ALWAYS VISIBLE ON DESKTOP, BOTTOM SHEET ON MOBILE) */}
+                        {/* CART DRAWER */}
                         <div className="fixed md:static bottom-16 md:bottom-auto left-0 w-full md:w-96 bg-slate-900 md:bg-slate-900/50 backdrop-blur-xl border-t md:border-l border-slate-800 p-4 md:p-6 flex flex-col shadow-2xl md:shadow-none z-30 h-auto md:h-full transition-transform">
                             {/* Stylist Selector */}
                             <div className="mb-4">
@@ -182,7 +202,7 @@ const App = () => {
                                 </div>
                             </div>
 
-                            {/* Cart Items (Desktop only or Expanded) */}
+                            {/* Cart Items */}
                             <div className="hidden md:flex flex-1 flex-col overflow-y-auto space-y-2 mb-4">
                                 {cart.map((item, i) => (
                                     <div key={i} className="flex justify-between items-center bg-slate-800 p-3 rounded-xl border border-slate-700/50">
@@ -216,12 +236,16 @@ const App = () => {
                     <div className="p-6 md:p-10 overflow-y-auto">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                             <div className="glass p-5 rounded-2xl border border-slate-800 bg-slate-900/50">
-                                <p className="text-slate-400 text-xs font-bold uppercase mb-1">Today</p>
+                                <p className="text-slate-400 text-xs font-bold uppercase mb-1">Total Revenue</p>
                                 <p className="text-2xl md:text-3xl font-black text-emerald-400">{formatCurrency(totalRevenue)}</p>
                             </div>
                             <div className="glass p-5 rounded-2xl border border-slate-800 bg-slate-900/50">
-                                <p className="text-slate-400 text-xs font-bold uppercase mb-1">Clients</p>
-                                <p className="text-2xl md:text-3xl font-black text-yellow-400">{todaysSales.length}</p>
+                                <p className="text-slate-400 text-xs font-bold uppercase mb-1">Total Expenses</p>
+                                <p className="text-2xl md:text-3xl font-black text-rose-400">{formatCurrency(totalExpenseAmount)}</p>
+                            </div>
+                            <div className="glass p-5 rounded-2xl border border-slate-800 bg-slate-900/50 col-span-2 md:col-span-2">
+                                <p className="text-slate-400 text-xs font-bold uppercase mb-1">Net Profit</p>
+                                <p className={`text-2xl md:text-3xl font-black ${netProfit >= 0 ? 'text-yellow-400' : 'text-rose-400'}`}>{formatCurrency(netProfit)}</p>
                             </div>
                         </div>
                         <div className="glass p-6 rounded-2xl border border-slate-800">
@@ -237,6 +261,37 @@ const App = () => {
                                     </div>
                                 ))}
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* VIEW: EXPENSES */}
+                {view === 'expenses' && (
+                    <div className="p-6 md:p-10 overflow-y-auto max-w-2xl mx-auto w-full pb-24">
+                        <div className="glass p-6 rounded-3xl border border-slate-800 mb-8">
+                            <h3 className="font-bold text-lg text-white mb-4 flex items-center gap-2"><Wallet className="text-rose-500"/> Add Expense</h3>
+                            <form onSubmit={handleAddExpense} className="flex gap-2 mb-4">
+                                <input name="name" required placeholder="Description (e.g. Tea, Bill)" className="flex-1 bg-slate-950 border-0 rounded-xl p-3 text-sm focus:ring-2 focus:ring-rose-500" />
+                                <input name="amount" type="number" required placeholder="Amount" className="w-24 bg-slate-950 border-0 rounded-xl p-3 text-sm focus:ring-2 focus:ring-rose-500" />
+                                <button className="bg-rose-500 text-white p-3 rounded-xl font-bold"><Plus size={20}/></button>
+                            </form>
+                        </div>
+                        
+                        <div className="space-y-3">
+                            <h3 className="text-slate-500 text-sm font-bold uppercase tracking-wider mb-2">Today's Expenses</h3>
+                            {todaysExpenses.length === 0 ? (
+                                <p className="text-slate-600 text-center py-8">No expenses recorded today.</p>
+                            ) : (
+                                todaysExpenses.map(e => (
+                                    <div key={e.id} className="glass p-4 rounded-2xl flex justify-between items-center border border-slate-800/50">
+                                        <span className="font-medium text-slate-200">{e.description}</span>
+                                        <div className="flex items-center gap-3">
+                                            <span className="font-bold text-rose-400">{formatCurrency(e.amount)}</span>
+                                            <button onClick={() => deleteDoc(doc(db, DB_PREFIX + 'expenses', e.id))} className="text-slate-600 hover:text-rose-500"><Trash2 size={16}/></button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
                 )}
@@ -286,7 +341,7 @@ const App = () => {
             </main>
 
             {/* INVOICE MODAL */}
-            {showInvoice && <InvoiceModal sale={showInvoice} onClose={() => setShowInvoice(null)} salonInfo={{ name: "Rehman Salon", address: "Main Market", phone: "0300-1234567" }} />}
+            {showInvoice && <InvoiceModal sale={showInvoice} onClose={() => setShowInvoice(null)} salonInfo={{ name: "Rehman Salon", address: "Main Market, City", phone: "0300-1234567" }} />}
         </div>
     );
 };

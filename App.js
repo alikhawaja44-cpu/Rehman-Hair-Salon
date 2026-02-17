@@ -4,7 +4,7 @@ import {
   Scissors, User, Calendar, DollarSign, Settings, 
   LayoutDashboard, Users, ShoppingBag, Plus, Trash2, 
   CheckCircle, Clock, Search, LogOut, ChevronRight,
-  Menu, X, Printer, TrendingUp, Filter, Home, Wallet
+  Menu, X, Printer, TrendingUp, Filter, Home, Wallet, CalendarDays
 } from 'lucide-react';
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
 import { getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy, where, writeBatch } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
@@ -25,6 +25,7 @@ const DB_PREFIX = "rehman_salon_";
 
 // --- UTILS ---
 const formatCurrency = (amount) => new Intl.NumberFormat('en-PK', { style: 'currency', currency: 'PKR', maximumFractionDigits: 0 }).format(amount);
+const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
 // --- HOOKS ---
 function useCollection(colName) {
@@ -46,6 +47,9 @@ const InvoiceModal = ({ sale, onClose, salonInfo }) => (
                 <div className="flex justify-center gap-2 mt-4">
                     <span className="bg-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded-full uppercase">Invoice</span>
                     <span className="bg-yellow-100 text-yellow-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase">#{sale.id.slice(-4)}</span>
+                </div>
+                <div className="mt-2 text-xs text-slate-400">
+                    {new Date(sale.createdAt).toLocaleString()}
                 </div>
             </div>
             <div className="p-6 space-y-4">
@@ -76,19 +80,20 @@ const App = () => {
     const [selectedStylist, setSelectedStylist] = useState('');
     const [showInvoice, setShowInvoice] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); // Default to today
     
     const [services] = useCollection('services');
     const [staff] = useCollection('staff');
     const [sales] = useCollection('sales');
-    const [expenses] = useCollection('expenses'); // New Hook
+    const [expenses] = useCollection('expenses');
 
-    const today = new Date().toISOString().split('T')[0];
-    const todaysSales = sales.filter(s => s.date === today);
-    const todaysExpenses = expenses.filter(e => e.date === today);
+    // Filter sales and expenses by selected date
+    const filteredSales = sales.filter(s => s.date === selectedDate);
+    const filteredExpenses = expenses.filter(e => e.date === selectedDate);
     
-    const totalRevenue = todaysSales.reduce((sum, s) => sum + s.total, 0);
-    const totalExpenseAmount = todaysExpenses.reduce((sum, e) => sum + e.amount, 0);
-    const netProfit = totalRevenue - totalExpenseAmount;
+    const dailyRevenue = filteredSales.reduce((sum, s) => sum + s.total, 0);
+    const dailyExpenseAmount = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const dailyNetProfit = dailyRevenue - dailyExpenseAmount;
 
     const addToCart = (service) => setCart([...cart, service]);
     const removeFromCart = (index) => setCart(cart.filter((_, i) => i !== index));
@@ -97,6 +102,13 @@ const App = () => {
     const handleCheckout = async () => {
         if (cart.length === 0) return alert("Cart is empty!");
         if (!selectedStylist) return alert("Select a stylist!");
+        
+        // Use selectedDate for the sale so user can backdate if needed, or default to today
+        // Actually for POS it usually means "Now", but if they changed the date filter, maybe they want to add a past sale?
+        // Let's stick to "Now" for POS usually, but for a small shop manual entry might need backdating.
+        // For simplicity in POS, we use TODAY for new sales.
+        const today = new Date().toISOString().split('T')[0];
+        
         const saleData = { date: today, createdAt: new Date().toISOString(), stylist: selectedStylist, services: cart, total: cartTotal };
         const docRef = await addDoc(collection(db, DB_PREFIX + 'sales'), saleData);
         setShowInvoice({ id: docRef.id, ...saleData });
@@ -120,7 +132,6 @@ const App = () => {
         }
     };
 
-    // NEW: Handle Expense
     const handleAddExpense = (e) => {
         e.preventDefault();
         const { name, amount } = e.target.elements;
@@ -128,7 +139,7 @@ const App = () => {
             addDoc(collection(db, DB_PREFIX + 'expenses'), { 
                 description: name.value, 
                 amount: Number(amount.value), 
-                date: today,
+                date: selectedDate, // Use the selected filter date for expenses so they can add to specific days
                 createdAt: new Date().toISOString() 
             });
             e.target.reset();
@@ -152,7 +163,7 @@ const App = () => {
                     <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center text-slate-900"><Scissors size={18} /></div>
                     <span className="font-bold text-lg">REHMAN</span>
                 </div>
-                <div className="text-xs font-bold text-emerald-400 bg-emerald-400/10 px-3 py-1 rounded-full">{formatCurrency(totalRevenue)}</div>
+                <div className="text-xs font-bold text-slate-400">{formatDate(selectedDate)}</div>
             </div>
 
             {/* SIDEBAR / BOTTOM NAV */}
@@ -170,6 +181,25 @@ const App = () => {
             {/* MAIN CONTENT */}
             <main className="flex-1 flex flex-col h-full overflow-hidden relative pb-16 md:pb-0">
                 <div className="absolute top-0 right-0 w-full h-full bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-yellow-500/5 via-transparent to-transparent pointer-events-none"></div>
+
+                {/* DATE FILTER HEADER (Visible on Dashboard & Expenses) */}
+                {(view === 'dashboard' || view === 'expenses') && (
+                    <div className="p-6 md:p-10 pb-0 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <h2 className="text-3xl font-bold text-white mb-1 capitalize">{view}</h2>
+                            <p className="text-slate-500 text-sm">Overview for {formatDate(selectedDate)}</p>
+                        </div>
+                        <div className="bg-slate-900 p-2 rounded-xl border border-slate-800 flex items-center gap-3">
+                            <CalendarDays size={20} className="text-yellow-500 ml-2" />
+                            <input 
+                                type="date" 
+                                value={selectedDate} 
+                                onChange={(e) => setSelectedDate(e.target.value)}
+                                className="bg-transparent text-white font-bold outline-none text-sm cursor-pointer"
+                            />
+                        </div>
+                    </div>
+                )}
 
                 {view === 'pos' && (
                     <div className="flex flex-col md:flex-row h-full">
@@ -233,31 +263,34 @@ const App = () => {
 
                 {/* VIEW: DASHBOARD */}
                 {view === 'dashboard' && (
-                    <div className="p-6 md:p-10 overflow-y-auto">
+                    <div className="p-6 md:p-10 pt-6 overflow-y-auto">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                             <div className="glass p-5 rounded-2xl border border-slate-800 bg-slate-900/50">
                                 <p className="text-slate-400 text-xs font-bold uppercase mb-1">Total Revenue</p>
-                                <p className="text-2xl md:text-3xl font-black text-emerald-400">{formatCurrency(totalRevenue)}</p>
+                                <p className="text-2xl md:text-3xl font-black text-emerald-400">{formatCurrency(dailyRevenue)}</p>
                             </div>
                             <div className="glass p-5 rounded-2xl border border-slate-800 bg-slate-900/50">
                                 <p className="text-slate-400 text-xs font-bold uppercase mb-1">Total Expenses</p>
-                                <p className="text-2xl md:text-3xl font-black text-rose-400">{formatCurrency(totalExpenseAmount)}</p>
+                                <p className="text-2xl md:text-3xl font-black text-rose-400">{formatCurrency(dailyExpenseAmount)}</p>
                             </div>
                             <div className="glass p-5 rounded-2xl border border-slate-800 bg-slate-900/50 col-span-2 md:col-span-2">
-                                <p className="text-slate-400 text-xs font-bold uppercase mb-1">Net Profit</p>
-                                <p className={`text-2xl md:text-3xl font-black ${netProfit >= 0 ? 'text-yellow-400' : 'text-rose-400'}`}>{formatCurrency(netProfit)}</p>
+                                <p className="text-slate-400 text-xs font-bold uppercase mb-1">Net Profit ({formatDate(selectedDate)})</p>
+                                <p className={`text-2xl md:text-3xl font-black ${dailyNetProfit >= 0 ? 'text-yellow-400' : 'text-rose-400'}`}>{formatCurrency(dailyNetProfit)}</p>
                             </div>
                         </div>
                         <div className="glass p-6 rounded-2xl border border-slate-800">
-                            <h3 className="font-bold text-lg mb-4 text-white">Recent Sales</h3>
+                            <h3 className="font-bold text-lg mb-4 text-white">Sales History ({formatDate(selectedDate)})</h3>
                             <div className="space-y-3">
-                                {sales.slice(0, 8).map(s => (
+                                {filteredSales.length === 0 ? <p className="text-slate-500 text-sm italic">No sales found for this date.</p> : filteredSales.map(s => (
                                     <div key={s.id} className="flex justify-between items-center py-3 border-b border-slate-800 last:border-0">
                                         <div>
                                             <p className="font-bold text-slate-200 text-sm">{s.stylist}</p>
                                             <p className="text-xs text-slate-500">{new Date(s.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} • {s.services.length} items</p>
                                         </div>
-                                        <p className="font-bold text-emerald-400">{formatCurrency(s.total)}</p>
+                                        <div className="flex items-center gap-3">
+                                            <p className="font-bold text-emerald-400">{formatCurrency(s.total)}</p>
+                                            <button onClick={() => deleteDoc(doc(db, DB_PREFIX + 'sales', s.id))} className="text-slate-600 hover:text-rose-500"><Trash2 size={14}/></button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -267,7 +300,7 @@ const App = () => {
 
                 {/* VIEW: EXPENSES */}
                 {view === 'expenses' && (
-                    <div className="p-6 md:p-10 overflow-y-auto max-w-2xl mx-auto w-full pb-24">
+                    <div className="p-6 md:p-10 pt-6 overflow-y-auto max-w-2xl mx-auto w-full pb-24">
                         <div className="glass p-6 rounded-3xl border border-slate-800 mb-8">
                             <h3 className="font-bold text-lg text-white mb-4 flex items-center gap-2"><Wallet className="text-rose-500"/> Add Expense</h3>
                             <form onSubmit={handleAddExpense} className="flex gap-2 mb-4">
@@ -275,14 +308,15 @@ const App = () => {
                                 <input name="amount" type="number" required placeholder="Amount" className="w-24 bg-slate-950 border-0 rounded-xl p-3 text-sm focus:ring-2 focus:ring-rose-500" />
                                 <button className="bg-rose-500 text-white p-3 rounded-xl font-bold"><Plus size={20}/></button>
                             </form>
+                            <p className="text-xs text-slate-500">* Expenses added will be for: <span className="text-white font-bold">{formatDate(selectedDate)}</span></p>
                         </div>
                         
                         <div className="space-y-3">
-                            <h3 className="text-slate-500 text-sm font-bold uppercase tracking-wider mb-2">Today's Expenses</h3>
-                            {todaysExpenses.length === 0 ? (
-                                <p className="text-slate-600 text-center py-8">No expenses recorded today.</p>
+                            <h3 className="text-slate-500 text-sm font-bold uppercase tracking-wider mb-2">Expenses for {formatDate(selectedDate)}</h3>
+                            {filteredExpenses.length === 0 ? (
+                                <p className="text-slate-600 text-center py-8">No expenses recorded for this date.</p>
                             ) : (
-                                todaysExpenses.map(e => (
+                                filteredExpenses.map(e => (
                                     <div key={e.id} className="glass p-4 rounded-2xl flex justify-between items-center border border-slate-800/50">
                                         <span className="font-medium text-slate-200">{e.description}</span>
                                         <div className="flex items-center gap-3">

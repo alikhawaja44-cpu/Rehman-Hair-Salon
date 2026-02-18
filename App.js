@@ -6,8 +6,8 @@ import {
   CheckCircle, Clock, Search, LogOut, ChevronRight,
   Menu, X, Printer, TrendingUp, Filter, Home, Wallet, CalendarDays, Lock, Unlock
 } from 'lucide-react';
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
-import { getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy, where, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy, where, writeBatch, getDocs } from "firebase/firestore";
 
 // --- CONFIG ---
 const firebaseConfig = {

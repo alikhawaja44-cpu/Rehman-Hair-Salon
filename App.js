@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, createContext, useContext } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
   Scissors, User, Calendar, DollarSign, Settings, 
   LayoutDashboard, Users, ShoppingBag, Plus, Trash2, 
   CheckCircle, Clock, Search, LogOut, ChevronRight,
-  Menu, X, Printer, TrendingUp, Filter, Home, Wallet, CalendarDays, Lock, Unlock
+  Menu, X, Printer, TrendingUp, Filter, Home, Wallet, CalendarDays, Lock, Unlock, Info, XCircle, CheckCircle2
 } from 'lucide-react';
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy, where, writeBatch, getDocs } from "firebase/firestore";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 // --- CONFIG ---
 const firebaseConfig = {
@@ -26,6 +27,46 @@ const DB_PREFIX = "rehman_salon_";
 // --- UTILS ---
 const formatCurrency = (amount) => new Intl.NumberFormat('en-PK', { style: 'currency', currency: 'PKR', maximumFractionDigits: 0 }).format(amount);
 const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+// --- TOAST CONTEXT ---
+const ToastContext = createContext();
+
+const ToastProvider = ({ children }) => {
+    const [toasts, setToasts] = useState([]);
+
+    const showToast = (message, type = 'info', duration = 3000) => {
+        const id = Date.now();
+        setToasts((prev) => [...prev, { id, message, type }]);
+        setTimeout(() => {
+            setToasts((prev) => prev.filter((toast) => toast.id !== id));
+        }, duration);
+    };
+
+    return (
+        <ToastContext.Provider value={showToast}>
+            {children}
+            <div className="fixed bottom-4 right-4 z-[1000] space-y-2 w-full max-w-xs">
+                {toasts.map((toast) => (
+                    <div
+                        key={toast.id}
+                        className={`p-4 rounded-xl shadow-lg flex items-center gap-3 animate-in fade-in-up ${
+                            toast.type === 'success' ? 'bg-emerald-600 text-white' :
+                            toast.type === 'error' ? 'bg-rose-600 text-white' :
+                            'bg-slate-800 text-slate-100'
+                        }`}
+                    >
+                        {toast.type === 'success' && <CheckCircle2 size={20} />}
+                        {toast.type === 'error' && <XCircle size={20} />}
+                        {toast.type === 'info' && <Info size={20} />}
+                        <span className="text-sm font-medium">{toast.message}</span>
+                    </div>
+                ))}
+            </div>
+        </ToastContext.Provider>
+    );
+};
+
+const useToast = () => useContext(ToastContext);
 
 // --- HOOKS ---
 function useCollection(colName) {
@@ -75,24 +116,30 @@ const PinScreen = ({ onPinVerified, onSetPin, isSetupMode, storedPin }) => {
     const [pinInput, setPinInput] = useState('');
     const [confirmPinInput, setConfirmPinInput] = useState('');
     const [error, setError] = useState('');
+    const showToast = useToast();
 
     const handlePinSubmit = () => {
         setError('');
         if (isSetupMode) {
             if (pinInput.length !== 4) {
                 setError('PIN must be 4 digits.');
+                showToast('PIN must be 4 digits.', 'error');
                 return;
             }
             if (pinInput !== confirmPinInput) {
                 setError('PINs do not match.');
+                showToast('PINs do not match.', 'error');
                 return;
             }
             onSetPin(pinInput);
+            showToast('PIN set successfully!', 'success');
         } else {
             if (pinInput === storedPin) {
                 onPinVerified();
+                showToast('PIN verified!', 'success');
             } else {
                 setError('Incorrect PIN.');
+                showToast('Incorrect PIN.', 'error');
             }
         }
     };
@@ -173,6 +220,7 @@ const InvoiceModal = ({ sale, onClose, salonInfo }) => (
                             <span className="font-bold text-slate-900">{formatCurrency(item.price)}</span>
                         </div>
                     ))}
+
                 </div>
                 <div className="border-t-2 border-slate-900 pt-4 flex justify-between items-center text-xl font-black">
                     <span>TOTAL</span>
@@ -197,6 +245,7 @@ const App = () => {
     const [pinSetting, updatePinSetting, setInitialPinSetting] = useSettings('appPin');
     const [showPinSetup, setShowPinSetup] = useState(false);
     const [showPinVerification, setShowPinVerification] = useState(false);
+    const showToast = useToast();
 
     useEffect(() => {
         if (pinSetting === null) {
@@ -220,13 +269,26 @@ const App = () => {
     const dailyExpenseAmount = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
     const dailyNetProfit = dailyRevenue - dailyExpenseAmount;
 
-    const addToCart = (service) => setCart([...cart, service]);
-    const removeFromCart = (index) => setCart(cart.filter((_, i) => i !== index));
+    const addToCart = (service) => {
+        setCart([...cart, service]);
+        showToast(`${service.name} added to cart!`, 'info');
+    };
+    const removeFromCart = (index) => {
+        const removedItem = cart[index];
+        setCart(cart.filter((_, i) => i !== index));
+        showToast(`${removedItem.name} removed from cart.`, 'info');
+    };
     const cartTotal = cart.reduce((sum, item) => sum + Number(item.price), 0);
 
     const handleCheckout = async () => {
-        if (cart.length === 0) return alert("Cart is empty!");
-        if (!selectedStylist) return alert("Select a stylist!");
+        if (cart.length === 0) {
+            showToast("Cart is empty!", 'error');
+            return;
+        }
+        if (!selectedStylist) {
+            showToast("Please select a stylist!", 'error');
+            return;
+        }
         
         const today = new Date().toISOString().split('T')[0];
         
@@ -246,36 +308,46 @@ const App = () => {
 
         setShowInvoice({ id: docRef.id, ...saleData });
         setCart([]);
+        showToast('Checkout successful!', 'success');
     };
 
-    const handleAddService = (e) => {
+    const handleAddService = async (e) => {
         e.preventDefault();
         const { name, price } = e.target.elements;
         if(name.value && price.value) {
-            addDoc(collection(db, DB_PREFIX + 'services'), { name: name.value, price: Number(price.value), createdAt: new Date().toISOString() });
+            await addDoc(collection(db, DB_PREFIX + 'services'), { name: name.value, price: Number(price.value), createdAt: new Date().toISOString() });
             e.target.reset();
+            showToast('Service added!', 'success');
+        } else {
+            showToast('Please fill all fields for service.', 'error');
         }
     };
 
-    const handleAddStaff = (e) => {
+    const handleAddStaff = async (e) => {
         e.preventDefault();
         if(e.target.name.value) {
-            addDoc(collection(db, DB_PREFIX + 'staff'), { name: e.target.name.value, role: 'Stylist', createdAt: new Date().toISOString() });
+            await addDoc(collection(db, DB_PREFIX + 'staff'), { name: e.target.name.value, role: 'Stylist', createdAt: new Date().toISOString() });
             e.target.reset();
+            showToast('Staff member added!', 'success');
+        } else {
+            showToast('Please enter staff name.', 'error');
         }
     };
 
-    const handleAddExpense = (e) => {
+    const handleAddExpense = async (e) => {
         e.preventDefault();
         const { name, amount } = e.target.elements;
         if(name.value && amount.value) {
-            addDoc(collection(db, DB_PREFIX + 'expenses'), { 
+            await addDoc(collection(db, DB_PREFIX + 'expenses'), { 
                 description: name.value, 
                 amount: Number(amount.value), 
                 date: selectedDate, // Use the selected filter date for expenses so they can add to specific days
                 createdAt: new Date().toISOString() 
             });
             e.target.reset();
+            showToast('Expense added!', 'success');
+        } else {
+            showToast('Please fill all fields for expense.', 'error');
         }
     };
 
@@ -283,11 +355,13 @@ const App = () => {
         await setInitialPinSetting(newPin);
         setShowPinSetup(false);
         setIsPinVerified(true);
+        showToast('PIN set successfully!', 'success');
     };
 
     const handlePinVerifySuccess = () => {
         setShowPinVerification(false);
         setIsPinVerified(true);
+        showToast('PIN verified!', 'success');
     };
 
     const filteredServices = services.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -316,66 +390,97 @@ const App = () => {
         return <PinScreen isSetupMode={false} storedPin={pinSetting} onPinVerified={handlePinVerifySuccess} />;
     }
 
+    // Dashboard Chart Data
+    const chartData = useMemo(() => {
+        // Group sales and expenses by date to show trends
+        const dailyData = {};
+
+        filteredSales.forEach(sale => {
+            if (!dailyData[sale.date]) dailyData[sale.date] = { date: sale.date, sales: 0, expenses: 0 };
+            dailyData[sale.date].sales += sale.total;
+        });
+
+        filteredExpenses.forEach(expense => {
+            if (!dailyData[expense.date]) dailyData[expense.date] = { date: expense.date, sales: 0, expenses: 0 };
+            dailyData[expense.date].expenses += expense.amount;
+        });
+
+        // Convert to array and sort by date for the chart
+        return Object.values(dailyData).sort((a, b) => new Date(a.date) - new Date(b.date));
+    }, [filteredSales, filteredExpenses]);
+
+
     return (
-        <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-slate-950 text-slate-100 font-sans">
-            {/* MOBILE HEADER */}
-            <div className="md:hidden flex justify-between items-center p-4 bg-slate-900 border-b border-slate-800 z-50">
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center text-slate-900"><Scissors size={18} /></div>
-                    <span className="font-bold text-lg">REHMAN</span>
-                </div>
-                <div className="text-xs font-bold text-slate-400">{formatDate(selectedDate)}</div>
-            </div>
-
-            {/* SIDEBAR / BOTTOM NAV */}
-            <nav className="fixed bottom-0 w-full md:relative md:w-64 bg-slate-900 border-t md:border-r border-slate-800 flex md:flex-col justify-around md:justify-start p-2 md:p-6 z-40 gap-1 md:gap-2">
-                <div className="hidden md:flex items-center gap-3 px-4 mb-8">
-                    <div className="w-10 h-10 bg-yellow-500 rounded-xl flex items-center justify-center text-slate-900 shadow-lg shadow-yellow-500/20"><Scissors size={24} /></div>
-                    <div><h1 className="font-bold text-xl leading-none">REHMAN</h1><span className="text-xs text-yellow-500 font-bold uppercase">Salon Manager</span></div>
-                </div>
-                <NavItem id="pos" icon={Scissors} label="Service" />
-                <NavItem id="dashboard" icon={LayoutDashboard} label="Stats" />
-                <NavItem id="expenses" icon={Wallet} label="Expenses" />
-                <NavItem id="manage" icon={Settings} label="Manage" requiresPin={true} />
-            </nav>
-
-            {/* MAIN CONTENT */}
-            <main className="flex-1 flex flex-col h-full overflow-hidden relative pb-16 md:pb-0">
-                <div className="absolute top-0 right-0 w-full h-full bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-yellow-500/5 via-transparent to-transparent pointer-events-none"></div>
-
-                {/* DATE FILTER HEADER (Visible on Dashboard & Expenses) */}
-                {(view === 'dashboard' || view === 'expenses') && (
-                    <div className="p-6 md:p-10 pb-0 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div>
-                            <h2 className="text-3xl font-bold text-white mb-1 capitalize">{view}</h2>
-                            <p className="text-slate-500 text-sm">Overview for {formatDate(selectedDate)}</p>
-                        </div>
-                        <div className="bg-slate-900 p-2 rounded-xl border border-slate-800 flex items-center gap-3">
-                            <CalendarDays size={20} className="text-yellow-500 ml-2" />
-                            <input 
-                                type="date" 
-                                value={selectedDate} 
-                                onChange={(e) => setSelectedDate(e.target.value)}
-                                className="bg-transparent text-white font-bold outline-none text-sm cursor-pointer"
-                            />
-                        </div>
+        <ToastProvider>
+            <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-[var(--color-background)] text-[var(--color-text-light)] font-sans">
+                {/* MOBILE HEADER */}
+                <div className="md:hidden flex justify-between items-center p-4 bg-[var(--color-surface)] border-b border-slate-800 z-50">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-[var(--color-primary)] rounded-lg flex items-center justify-center text-slate-900"><Scissors size={18} /></div>
+                        <span className="font-bold text-lg">REHMAN</span>
                     </div>
-                )}
+                    <div className="text-xs font-bold text-[var(--color-text-dark)]">{formatDate(selectedDate)}</div>
+                </div>
+
+                {/* SIDEBAR / BOTTOM NAV */}
+                <nav className="fixed bottom-0 w-full md:relative md:w-64 bg-[var(--color-surface)] border-t md:border-r border-slate-800 flex md:flex-col justify-around md:justify-start p-2 md:p-6 z-40 gap-1 md:gap-2">
+                    <div className="hidden md:flex items-center gap-3 px-4 mb-8">
+                        <div className="w-10 h-10 bg-[var(--color-primary)] rounded-xl flex items-center justify-center text-slate-900 shadow-lg shadow-[var(--color-primary)]/20"><Scissors size={24} /></div>
+                        <div><h1 className="font-bold text-xl leading-none">REHMAN</h1><span className="text-xs text-[var(--color-primary)] font-bold uppercase">Salon Manager</span></div>
+                    </div>
+                    <NavItem id="pos" icon={Scissors} label="Service" />
+                    <NavItem id="dashboard" icon={LayoutDashboard} label="Stats" />
+                    <NavItem id="expenses" icon={Wallet} label="Expenses" />
+                    <NavItem id="manage" icon={Settings} label="Manage" requiresPin={true} />
+                </nav>
+
+                {/* MAIN CONTENT */}
+                <main className="flex-1 flex flex-col h-full overflow-hidden relative pb-16 md:pb-0">
+                    <div className="absolute top-0 right-0 w-full h-full bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[var(--color-primary)]/5 via-transparent to-transparent pointer-events-none"></div>
+
+                    {/* DATE FILTER HEADER (Visible on Dashboard & Expenses) */}
+                    {(view === 'dashboard' || view === 'expenses') && (
+                        <div className="p-6 md:p-10 pb-0 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div>
+                                <h2 className="text-3xl font-bold text-white mb-1 capitalize">{view}</h2>
+                                <p className="text-[var(--color-text-dark)] text-sm">Overview for {formatDate(selectedDate)}</p>
+                            </div>
+                            <div className="bg-[var(--color-surface)] p-2 rounded-xl border border-slate-800 flex items-center gap-3">
+                                <CalendarDays size={20} className="text-[var(--color-primary)] ml-2" />
+                                <input 
+                                    type="date" 
+                                    value={selectedDate} 
+                                    onChange={(e) => setSelectedDate(e.target.value)}
+                                    className="bg-transparent text-white font-bold outline-none text-sm cursor-pointer"
+                                />
+                            </div>
+                        </div>
+                    )}
+
 
                 {view === 'pos' && (
                     <div className="flex flex-col md:flex-row h-full">
                         {/* SERVICE GRID */}
                         <div className="flex-1 p-4 md:p-8 overflow-y-auto">
                             <div className="relative mb-6">
-                                <Search className="absolute left-4 top-3.5 text-slate-500" size={20} />
-                                <input className="w-full bg-slate-900/80 border border-slate-800 text-white pl-12 pr-4 py-3 rounded-2xl focus:border-yellow-500 outline-none transition-all placeholder:text-slate-600" placeholder="Search services..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                                <Search className="absolute left-4 top-3.5 text-[var(--color-text-dark)]" size={20} />
+                                <input 
+                                    className="w-full bg-[var(--color-surface)] border border-[var(--color-surface)] text-[var(--color-text-light)] pl-12 pr-4 py-3 rounded-2xl focus:border-[var(--color-primary)] outline-none transition-all placeholder:text-[var(--color-text-dark)]"
+                                    placeholder="Search services..."
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                />
                             </div>
                             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 pb-24 md:pb-0">
                                 {filteredServices.map(s => (
-                                    <button key={s.id} onClick={() => addToCart(s)} className="glass p-4 rounded-2xl text-left hover:bg-slate-800 hover:border-yellow-500/30 transition-all active:scale-95 group relative overflow-hidden">
-                                        <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"/>
-                                        <h3 className="font-bold text-slate-200 mb-1 relative z-10">{s.name}</h3>
-                                        <p className="text-yellow-500 font-bold text-lg relative z-10">{formatCurrency(s.price)}</p>
+                                    <button 
+                                        key={s.id} 
+                                        onClick={() => addToCart(s)}
+                                        className="glass p-4 rounded-2xl text-left hover:bg-[var(--color-surface)] hover:border-[var(--color-primary)]/30 transition-all active:scale-95 group relative overflow-hidden flex flex-col justify-between h-32"
+                                    >
+                                        <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-primary)]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"/>
+                                        <h3 className="font-bold text-[var(--color-text-light)] mb-1 relative z-10 text-lg">{s.name}</h3>
+                                        <p className="text-[var(--color-primary)] font-bold text-xl relative z-10">{formatCurrency(s.price)}</p>
                                     </button>
                                 ))}
                             </div>
@@ -388,36 +493,48 @@ const App = () => {
                                 <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Stylist</label>
                                 <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                                     {staff.map(s => (
-                                        <button key={s.id} onClick={() => setSelectedStylist(s.name)} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all border ${selectedStylist === s.name ? 'bg-yellow-500 text-slate-900 border-yellow-500' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>{s.name}</button>
+                                        <button 
+                                            key={s.id} 
+                                            onClick={() => setSelectedStylist(s.name)}
+                                            className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all border ${selectedStylist === s.name ? 'bg-[var(--color-primary)] text-slate-900 border-[var(--color-primary)]' : 'bg-slate-800 text-[var(--color-text-dark)] border-slate-700 hover:border-slate-600'}`}
+                                        >{s.name}</button>
                                     ))}
                                 </div>
                             </div>
 
-                            {/* Cart Items */}
-                            <div className="hidden md:flex flex-1 flex-col overflow-y-auto space-y-2 mb-4">
-                                {cart.map((item, i) => (
-                                    <div key={i} className="flex justify-between items-center bg-slate-800 p-3 rounded-xl border border-slate-700/50">
-                                        <span className="font-medium text-sm">{item.name}</span>
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-yellow-500 font-bold text-sm">{formatCurrency(item.price)}</span>
-                                            <button onClick={() => removeFromCart(i)} className="text-slate-500 hover:text-rose-500"><X size={14}/></button>
+                                {/* Cart Items */}
+                                <div className="flex-1 flex flex-col overflow-y-auto space-y-2 mb-4 custom-scrollbar">
+                                    {cart.length === 0 ? (
+                                        <div className="text-center text-[var(--color-text-dark)] py-8">
+                                            <ShoppingBag size={48} className="mx-auto mb-4" />
+                                            <p className="font-medium">Your cart is empty.</p>
+                                            <p className="text-sm">Add services to get started!</p>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
+                                    ) : (
+                                        cart.map((item, i) => (
+                                            <div key={i} className="flex justify-between items-center bg-slate-800 p-3 rounded-xl border border-slate-700/50">
+                                                <span className="font-medium text-sm text-[var(--color-text-light)]">{item.name}</span>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-[var(--color-primary)] font-bold text-sm">{formatCurrency(item.price)}</span>
+                                                    <button onClick={() => removeFromCart(i)} className="text-slate-500 hover:text-rose-500 transition-colors"><X size={14}/></button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
 
-                            {/* Checkout Button */}
-                            <div className="mt-auto">
-                                <button onClick={handleCheckout} className="w-full bg-yellow-500 hover:bg-yellow-400 text-slate-900 py-4 rounded-2xl font-black text-lg shadow-lg shadow-yellow-500/20 active:scale-95 transition-all flex items-center justify-between px-6">
-                                    <div className="flex flex-col items-start leading-none">
-                                        <span className="text-xs uppercase opacity-70 font-bold">Total</span>
-                                        <span>{formatCurrency(cartTotal)}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider">
-                                        Checkout <ChevronRight size={18} />
-                                    </div>
-                                </button>
-                            </div>
+                                {/* Checkout Button */}
+                                <div className="mt-auto">
+                                    <button onClick={handleCheckout} className="w-full bg-[var(--color-primary)] hover:bg-yellow-400 text-slate-900 py-4 rounded-2xl font-black text-lg shadow-lg shadow-[var(--color-primary)]/20 active:scale-95 transition-all flex items-center justify-between px-6">
+                                        <div className="flex flex-col items-start leading-none">
+                                            <span className="text-xs uppercase opacity-70 font-bold">Total</span>
+                                            <span>{formatCurrency(cartTotal)}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider">
+                                            Checkout <ChevronRight size={18} />
+                                        </div>
+                                    </button>
+                                </div>
                         </div>
                     </div>
                 )}

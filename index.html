@@ -4,25 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rehman Hair Salon</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="./dist/index.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Import Map to resolve 'react' and 'react-dom' in the browser -->
-    <script type="importmap">
-    {
-      "imports": {
-        "react": "https://esm.sh/react@18.2.0",
-        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-        "lucide-react": "https://esm.sh/lucide-react@0.263.1",
-        "recharts": "https://esm.sh/recharts@2.7.2",
-        "firebase/app": "https://esm.sh/firebase@10.8.0/app",
-        "firebase/firestore": "https://esm.sh/firebase@10.8.0/firestore"
-      }
-    }
-    </script>
-    
-    <!-- Babel to transpile JSX in the browser -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
         :root {
@@ -45,10 +28,6 @@
             border: 1px solid rgba(255, 255, 255, 0.08); /* slightly more visible border */
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3); /* subtle shadow */
         }
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: var(--color-surface); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; } /* slate-600 */
-        ::-webkit-scrollbar-thumb:hover { background: var(--color-primary); }
 
         /* General focus styles for accessibility */
         *:focus {
@@ -61,7 +40,7 @@
 <body>
     <div id="root"></div>
     
-    <!-- Load App.js as a module (assuming pre-transpiled JSX) -->
-    <script type="module" src="./App.js"></script>
+    <!-- Load the built App.js from the dist folder -->
+    <script type="module" src="./dist/App.js"></script>
 </body>
 </html>

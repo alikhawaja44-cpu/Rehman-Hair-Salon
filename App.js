@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, createContext, useContext } from 'react';
+import React, { useState, useEffect, useMemo, createContext, useContext } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
   Scissors, User, Calendar, DollarSign, Settings, 
@@ -7,7 +7,7 @@ import {
   Menu, X, Printer, TrendingUp, Filter, Home, Wallet, CalendarDays, Lock, Unlock, Info, XCircle, CheckCircle2
 } from 'lucide-react';
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy, where, writeBatch, getDocs } from "firebase/firestore";
+import { getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy, where, getDocs } from "firebase/firestore";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 // --- CONFIG ---
@@ -697,13 +697,12 @@ const App = () => {
     );
 };
 
+// Wait for DOM
 const init = () => {
     const container = document.getElementById('root');
     if (container) {
         const root = createRoot(container);
         root.render(<App />);
-    } else {
-        console.error("Target container 'root' not found");
     }
 };
 

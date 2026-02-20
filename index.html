@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rehman Hair Salon</title>
     
-    <!-- Tailwind CSS (via CDN for simplicity) -->
+    <!-- 1. Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Fonts -->
+    <!-- 2. Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Import Map for React & Dependencies -->
+    <!-- 3. React & Firebase Imports -->
     <script type="importmap">
     {
       "imports": {
@@ -25,7 +25,7 @@
     }
     </script>
     
-    <!-- Babel for in-browser JSX transpilation -->
+    <!-- 4. Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
@@ -49,19 +49,10 @@
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
         }
-        
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: var(--color-surface); border-radius: 10px; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--color-primary); }
-
-        /* Focus Styles */
-        *:focus {
-            outline: 2px solid var(--color-primary);
-            outline-offset: 2px;
-            border-radius: 4px;
-        }
         
         @media print {
             body * { visibility: hidden; }
@@ -76,7 +67,8 @@
 <body>
     <div id="root"></div>
     
-    <!-- Main App Script (Babel compiled in-browser) -->
-    <script type="text/babel" data-type="module" src="./App.js?v=cachebust1"></script>
+    <!-- 5. Main Application Script -->
+    <!-- Added timestamp to force cache clear -->
+    <script type="text/babel" data-type="module" src="./App.js?v=NEW_START_1"></script>
 </body>
 </html>

@@ -101,12 +101,10 @@ function useSettings(settingName) {
         if (docSnap.empty) {
             await addDoc(collection(db, DB_PREFIX + 'settings'), { id: settingName, value });
         } else {
-            // Document exists, update it instead of creating a new one with an auto-generated ID
             const existingDocId = docSnap.docs[0].id;
             await updateDoc(doc(db, DB_PREFIX + 'settings', existingDocId), { value });
         }
     };
-
 
     return [setting, updateSetting, setInitialSetting];
 }
@@ -197,7 +195,6 @@ const PinScreen = ({ onPinVerified, onSetPin, isSetupMode, storedPin }) => {
     );
 };
 
-
 const InvoiceModal = ({ sale, onClose, salonInfo }) => (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 p-4">
         <div id="printable-area" className="bg-white text-[var(--color-background)] w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
@@ -220,7 +217,6 @@ const InvoiceModal = ({ sale, onClose, salonInfo }) => (
                             <span className="font-bold text-[var(--color-background)]">{formatCurrency(item.price)}</span>
                         </div>
                     ))}
-
                 </div>
                 <div className="border-t-2 border-[var(--color-background)] pt-4 flex justify-between items-center text-xl font-black">
                     <span>TOTAL</span>
@@ -234,13 +230,14 @@ const InvoiceModal = ({ sale, onClose, salonInfo }) => (
         </div>
     </div>
 );
+
 const App = () => {
     const [view, setView] = useState('pos');
     const [cart, setCart] = useState([]);
     const [selectedStylist, setSelectedStylist] = useState('');
     const [showInvoice, setShowInvoice] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); // Default to today
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); 
     const [isPinVerified, setIsPinVerified] = useState(false);
     const [pinSetting, updatePinSetting, setInitialPinSetting] = useSettings('appPin');
     const [showPinSetup, setShowPinSetup] = useState(false);
@@ -255,13 +252,11 @@ const App = () => {
         }
     }, [pinSetting]);
 
-
     const [services] = useCollection('services');
     const [staff] = useCollection('staff');
     const [sales] = useCollection('sales');
     const [expenses] = useCollection('expenses');
 
-    // Filter sales and expenses by selected date
     const filteredSales = sales.filter(s => s.date === selectedDate);
     const filteredExpenses = expenses.filter(e => e.date === selectedDate);
     
@@ -295,7 +290,6 @@ const App = () => {
         const saleData = { date: today, createdAt: new Date().toISOString(), stylist: selectedStylist, services: cart, total: cartTotal };
         const docRef = await addDoc(collection(db, DB_PREFIX + 'sales'), saleData);
 
-        // Add entry to daily ledger
         await addDoc(collection(db, DB_PREFIX + 'dailyLedger'), {
             saleId: docRef.id,
             date: today,
@@ -303,7 +297,7 @@ const App = () => {
             stylist: selectedStylist,
             total: cartTotal,
             services: cart,
-            type: 'sale' // To distinguish from other potential ledger entries like expenses, etc.
+            type: 'sale'
         });
 
         setShowInvoice({ id: docRef.id, ...saleData });
@@ -341,7 +335,7 @@ const App = () => {
             await addDoc(collection(db, DB_PREFIX + 'expenses'), { 
                 description: name.value, 
                 amount: Number(amount.value), 
-                date: selectedDate, // Use the selected filter date for expenses so they can add to specific days
+                date: selectedDate, 
                 createdAt: new Date().toISOString() 
             });
             e.target.reset();
@@ -392,7 +386,6 @@ const App = () => {
 
     // Dashboard Chart Data
     const chartData = useMemo(() => {
-        // Group sales and expenses by date to show trends
         const dailyData = {};
 
         filteredSales.forEach(sale => {
@@ -405,10 +398,8 @@ const App = () => {
             dailyData[expense.date].expenses += expense.amount;
         });
 
-        // Convert to array and sort by date for the chart
         return Object.values(dailyData).sort((a, b) => new Date(a.date) - new Date(b.date));
     }, [filteredSales, filteredExpenses]);
-
 
     return (
         <ToastProvider>
@@ -438,7 +429,7 @@ const App = () => {
                 <main className="flex-1 flex flex-col h-full overflow-hidden relative pb-16 md:pb-0">
                     <div className="absolute top-0 right-0 w-full h-full bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[var(--color-primary)]/5 via-transparent to-transparent pointer-events-none"></div>
 
-                    {/* DATE FILTER HEADER (Visible on Dashboard & Expenses) */}
+                    {/* DATE FILTER HEADER */}
                     {(view === 'dashboard' || view === 'expenses') && (
                         <div className="p-6 md:p-10 pb-0 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                             <div>
@@ -457,50 +448,49 @@ const App = () => {
                         </div>
                     )}
 
-
-                {view === 'pos' && (
-                    <div className="flex flex-col md:flex-row h-full">
-                        {/* SERVICE GRID */}
-                        <div className="flex-1 p-4 md:p-8 overflow-y-auto">
-                            <div className="relative mb-6">
-                                <Search className="absolute left-4 top-3.5 text-[var(--color-text-dark)]" size={20} />
-                                <input 
-                                    className="w-full bg-[var(--color-surface)] border border-[var(--color-surface)] text-[var(--color-text-light)] pl-12 pr-4 py-3 rounded-2xl focus:border-[var(--color-primary)] outline-none transition-all placeholder:text-[var(--color-text-dark)]"
-                                    placeholder="Search services..."
-                                    value={searchTerm}
-                                    onChange={e => setSearchTerm(e.target.value)}
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 pb-24 md:pb-0">
-                                {filteredServices.map(s => (
-                                    <button 
-                                        key={s.id} 
-                                        onClick={() => addToCart(s)}
-                                        className="glass p-4 rounded-2xl text-left hover:bg-[var(--color-surface)] hover:border-[var(--color-primary)]/30 transition-all active:scale-95 group relative overflow-hidden flex flex-col justify-between h-32"
-                                    >
-                                        <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-primary)]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"/>
-                                        <h3 className="font-bold text-[var(--color-text-light)] mb-1 relative z-10 text-lg">{s.name}</h3>
-                                        <p className="text-[var(--color-primary)] font-bold text-xl relative z-10">{formatCurrency(s.price)}</p>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* CART DRAWER */}
-                        <div className="fixed md:static bottom-16 md:bottom-auto left-0 w-full md:w-96 bg-slate-900 md:bg-slate-900/50 backdrop-blur-xl border-t md:border-l border-slate-800 p-4 md:p-6 flex flex-col shadow-2xl md:shadow-none z-30 h-auto md:h-full transition-transform">
-                            {/* Stylist Selector */}
-                            <div className="mb-4">
-                                <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Stylist</label>
-                                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                                    {staff.map(s => (
+                    {view === 'pos' && (
+                        <div className="flex flex-col md:flex-row h-full">
+                            {/* SERVICE GRID */}
+                            <div className="flex-1 p-4 md:p-8 overflow-y-auto custom-scrollbar">
+                                <div className="relative mb-6">
+                                    <Search className="absolute left-4 top-3.5 text-[var(--color-text-dark)]" size={20} />
+                                    <input 
+                                        className="w-full bg-[var(--color-surface)] border border-[var(--color-surface)] text-[var(--color-text-light)] pl-12 pr-4 py-3 rounded-2xl focus:border-[var(--color-primary)] outline-none transition-all placeholder:text-[var(--color-text-dark)]"
+                                        placeholder="Search services..."
+                                        value={searchTerm}
+                                        onChange={e => setSearchTerm(e.target.value)}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 pb-24 md:pb-0">
+                                    {filteredServices.map(s => (
                                         <button 
                                             key={s.id} 
-                                            onClick={() => setSelectedStylist(s.name)}
-                                            className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all border ${selectedStylist === s.name ? 'bg-[var(--color-primary)] text-slate-900 border-[var(--color-primary)]' : 'bg-slate-800 text-[var(--color-text-dark)] border-slate-700 hover:border-slate-600'}`}
-                                        >{s.name}</button>
+                                            onClick={() => addToCart(s)}
+                                            className="glass p-4 rounded-2xl text-left hover:bg-[var(--color-surface)] hover:border-[var(--color-primary)]/30 transition-all active:scale-95 group relative overflow-hidden flex flex-col justify-between h-32"
+                                        >
+                                            <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-primary)]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"/>
+                                            <h3 className="font-bold text-[var(--color-text-light)] mb-1 relative z-10 text-lg">{s.name}</h3>
+                                            <p className="text-[var(--color-primary)] font-bold text-xl relative z-10">{formatCurrency(s.price)}</p>
+                                        </button>
                                     ))}
                                 </div>
                             </div>
+
+                            {/* CART DRAWER */}
+                            <div className="fixed md:static bottom-0 left-0 w-full md:w-96 bg-[var(--color-surface)] backdrop-blur-xl border-t md:border-l border-slate-800 p-4 md:p-6 flex flex-col shadow-2xl md:shadow-none z-30 h-auto max-h-[80vh] md:max-h-full transition-transform transform translate-y-0 md:translate-y-0">
+                                {/* Stylist Selector */}
+                                <div className="mb-4">
+                                    <label className="text-xs font-bold text-[var(--color-text-dark)] uppercase mb-2 block">Stylist</label>
+                                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                                        {staff.map(s => (
+                                            <button 
+                                                key={s.id} 
+                                                onClick={() => setSelectedStylist(s.name)}
+                                                className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all border ${selectedStylist === s.name ? 'bg-[var(--color-primary)] text-slate-900 border-[var(--color-primary)]' : 'bg-slate-800 text-[var(--color-text-dark)] border-slate-700 hover:border-slate-600'}`}
+                                            >{s.name}</button>
+                                        ))}
+                                    </div>
+                                </div>
 
                                 {/* Cart Items */}
                                 <div className="flex-1 flex flex-col overflow-y-auto space-y-2 mb-4 custom-scrollbar">
@@ -539,175 +529,170 @@ const App = () => {
                         </div>
                     )}
 
-                {/* VIEW: DASHBOARD */}
-                {view === 'dashboard' && (
-                    <div className="p-6 md:p-10 pt-6 overflow-y-auto custom-scrollbar">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                            <div className="glass p-5 rounded-2xl border border-slate-800 bg-[var(--color-surface)]/50">
-                                <p className="text-[var(--color-text-dark)] text-xs font-bold uppercase mb-1">Total Revenue</p>
-                                <p className="text-2xl md:text-3xl font-black text-emerald-400">{formatCurrency(dailyRevenue)}</p>
-                            </div>
-                            <div className="glass p-5 rounded-2xl border border-slate-800 bg-[var(--color-surface)]/50">
-                                <p className="text-[var(--color-text-dark)] text-xs font-bold uppercase mb-1">Total Expenses</p>
-                                <p className="text-2xl md:text-3xl font-black text-rose-400">{formatCurrency(dailyExpenseAmount)}</p>
-                            </div>
-                            <div className="glass p-5 rounded-2xl border border-slate-800 bg-[var(--color-surface)]/50 col-span-2 md:col-span-2">
-                                <p className="text-[var(--color-text-dark)] text-xs font-bold uppercase mb-1">Net Profit ({formatDate(selectedDate)})</p>
-                                <p className={`text-2xl md:text-3xl font-black ${dailyNetProfit >= 0 ? 'text-[var(--color-primary)]' : 'text-rose-400'}`}>{formatCurrency(dailyNetProfit)}</p>
-                            </div>
-                        </div>
-
-                        {/* Charts Section */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                            <div className="glass p-6 rounded-2xl border border-slate-800 h-80">
-                                <h3 className="font-bold text-lg mb-4 text-[var(--color-text-light)]">Daily Sales</h3>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                                        <XAxis dataKey="date" stroke="#94a3b8" tickFormatter={(tick) => new Date(tick).getDate()} />
-                                        <YAxis stroke="#94a3b8" tickFormatter={(tick) => formatCurrency(tick, 0)} />
-                                        <Tooltip 
-                                            cursor={{ fill: 'rgba(255,255,255,0.1)' }}
-                                            formatter={(value) => formatCurrency(value, 0)}
-                                            labelFormatter={(label) => `Date: ${formatDate(label)}`}
-                                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px' }}
-                                            itemStyle={{ color: '#e2e8f0' }}
-                                        />
-                                        <Bar dataKey="sales" fill="var(--color-primary)" />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                            <div className="glass p-6 rounded-2xl border border-slate-800 h-80">
-                                <h3 className="font-bold text-lg mb-4 text-[var(--color-text-light)]">Daily Expenses</h3>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                                        <XAxis dataKey="date" stroke="#94a3b8" tickFormatter={(tick) => new Date(tick).getDate()} />
-                                        <YAxis stroke="#94a3b8" tickFormatter={(tick) => formatCurrency(tick, 0)} />
-                                        <Tooltip 
-                                            cursor={{ fill: 'rgba(255,255,255,0.1)' }}
-                                            formatter={(value) => formatCurrency(value, 0)}
-                                            labelFormatter={(label) => `Date: ${formatDate(label)}`}
-                                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px' }}
-                                            itemStyle={{ color: '#e2e8f0' }}
-                                        />
-                                        <Bar dataKey="expenses" fill="#ef4444" /> {/* Rose-500 */}
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-                        
-                        <div className="glass p-6 rounded-2xl border border-slate-800">
-                            <h3 className="font-bold text-lg mb-4 text-[var(--color-text-light)]">Sales History ({formatDate(selectedDate)})</h3>
-                            <div className="space-y-3">
-                                {filteredSales.length === 0 ? <p className="text-[var(--color-text-dark)] text-sm italic">No sales found for this date.</p> : filteredSales.map(s => (
-                                    <div key={s.id} className="flex justify-between items-center py-3 border-b border-slate-800 last:border-0">
-                                        <div>
-                                            <p className="font-bold text-[var(--color-text-light)] text-sm">{s.stylist}</p>
-                                            <p className="text-xs text-[var(--color-text-dark)]">{new Date(s.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} • {s.services.length} items</p>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <p className="font-bold text-emerald-400">{formatCurrency(s.total)}</p>
-                                            <button onClick={() => deleteDoc(doc(db, DB_PREFIX + 'sales', s.id))} className="text-slate-600 hover:text-rose-500 transition-colors"><Trash2 size={14}/></button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* VIEW: EXPENSES */}
-                {view === 'expenses' && (
-                    <div className="p-6 md:p-10 pt-6 overflow-y-auto max-w-2xl mx-auto w-full pb-24">
-                        <div className="glass p-6 rounded-3xl border border-slate-800 mb-8">
-                            <h3 className="font-bold text-lg text-white mb-4 flex items-center gap-2"><Wallet className="text-rose-500"/> Add Expense</h3>
-                            <form onSubmit={handleAddExpense} className="flex gap-2 mb-4">
-                                <input name="name" required placeholder="Description (e.g. Tea, Bill)" className="flex-1 bg-[var(--color-background)] border-0 rounded-xl p-3 text-sm focus:ring-2 focus:ring-rose-500 text-[var(--color-text-light)] placeholder:text-[var(--color-text-dark)]" />
-                                <input name="amount" type="number" required placeholder="Amount" className="w-24 bg-[var(--color-background)] border-0 rounded-xl p-3 text-sm focus:ring-2 focus:ring-rose-500 text-[var(--color-text-light)] placeholder:text-[var(--color-text-dark)]" />
-                                <button className="bg-rose-500 text-white p-3 rounded-xl font-bold hover:bg-rose-600 transition-colors"><Plus size={20}/></button>
-                            </form>
-                            <p className="text-xs text-[var(--color-text-dark)]">* Expenses added will be for: <span className="text-[var(--color-text-light)] font-bold">{formatDate(selectedDate)}</span></p>
-                        </div>
-                        
-                        <div className="space-y-3">
-                            <h3 className="text-slate-500 text-sm font-bold uppercase tracking-wider mb-2">Expenses for {formatDate(selectedDate)}</h3>
-                            {filteredExpenses.length === 0 ? (
-                                <p className="text-slate-600 text-center py-8">No expenses recorded for this date.</p>
-                            ) : (
-                                filteredExpenses.map(e => (
-                                    <div key={e.id} className="glass p-4 rounded-2xl flex justify-between items-center border border-slate-800/50">
-                                        <span className="font-medium text-slate-200">{e.description}</span>
-                                        <div className="flex items-center gap-3">
-                                            <span className="font-bold text-rose-400">{formatCurrency(e.amount)}</span>
-                                            <button onClick={() => deleteDoc(doc(db, DB_PREFIX + 'expenses', e.id))} className="text-slate-600 hover:text-rose-500"><Trash2 size={16}/></button>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* VIEW: MANAGE */}
-                {view === 'manage' && isPinVerified && (
-                    <div className="p-6 md:p-10 overflow-y-auto max-w-2xl mx-auto w-full pb-24">
-                        <div className="space-y-8">
-                            {/* PIN Management */}
-                            <div className="glass p-6 rounded-3xl border border-slate-800">
-                                <h3 className="font-bold text-lg text-white mb-4 flex items-center gap-2"><Lock className="text-yellow-500"/> PIN Security</h3>
-                                <p className="text-slate-400 text-sm mb-4">Manage the security PIN for the application. Current PIN status: {pinSetting ? <span className="text-emerald-400">Set</span> : <span className="text-rose-400">Not Set</span>}</p>
-                                <button 
-                                    onClick={() => setShowPinSetup(true)}
-                                    className="bg-yellow-500 text-slate-900 py-3 px-6 rounded-xl font-bold text-sm hover:bg-yellow-400 transition-colors flex items-center gap-2"
-                                >
-                                    <Unlock size={18}/> {pinSetting ? "Change PIN" : "Set PIN"}
-                                </button>
+                    {view === 'dashboard' && (
+                        <div className="p-6 md:p-10 pt-6 overflow-y-auto custom-scrollbar">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                                <div className="glass p-5 rounded-2xl border border-slate-800 bg-[var(--color-surface)]/50">
+                                    <p className="text-[var(--color-text-dark)] text-xs font-bold uppercase mb-1">Total Revenue</p>
+                                    <p className="text-2xl md:text-3xl font-black text-emerald-400">{formatCurrency(dailyRevenue)}</p>
+                                </div>
+                                <div className="glass p-5 rounded-2xl border border-slate-800 bg-[var(--color-surface)]/50">
+                                    <p className="text-[var(--color-text-dark)] text-xs font-bold uppercase mb-1">Total Expenses</p>
+                                    <p className="text-2xl md:text-3xl font-black text-rose-400">{formatCurrency(dailyExpenseAmount)}</p>
+                                </div>
+                                <div className="glass p-5 rounded-2xl border border-slate-800 bg-[var(--color-surface)]/50 col-span-2 md:col-span-2">
+                                    <p className="text-[var(--color-text-dark)] text-xs font-bold uppercase mb-1">Net Profit ({formatDate(selectedDate)})</p>
+                                    <p className={`text-2xl md:text-3xl font-black ${dailyNetProfit >= 0 ? 'text-[var(--color-primary)]' : 'text-rose-400'}`}>{formatCurrency(dailyNetProfit)}</p>
+                                </div>
                             </div>
 
-                            <div className="glass p-6 rounded-3xl border border-slate-800">
-                                <h3 className="font-bold text-lg text-[var(--color-text-light)] mb-4 flex items-center gap-2"><Scissors className="text-[var(--color-primary)]"/> Add Service</h3>
-                                <form onSubmit={handleAddService} className="flex gap-2 mb-4">
-                                    <input name="name" required placeholder="Name" className="flex-1 bg-[var(--color-background)] border-0 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[var(--color-primary)] text-[var(--color-text-light)] placeholder:text-[var(--color-text-dark)]" />
-                                    <input name="price" type="number" required placeholder="Price" className="w-24 bg-[var(--color-background)] border-0 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[var(--color-primary)] text-[var(--color-text-light)] placeholder:text-[var(--color-text-dark)]" />
-                                    <button className="bg-[var(--color-primary)] text-slate-900 p-3 rounded-xl font-bold hover:bg-yellow-400 transition-colors"><Plus size={20}/></button>
-                                </form>
-                                <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                                    {services.map(s => (
-                                        <div key={s.id} className="flex justify-between items-center bg-[var(--color-surface)]/50 p-3 rounded-xl border border-slate-800/50">
-                                            <span className="text-sm font-medium text-[var(--color-text-light)]">{s.name}</span>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                                <div className="glass p-6 rounded-2xl border border-slate-800 h-80">
+                                    <h3 className="font-bold text-lg mb-4 text-[var(--color-text-light)]">Daily Sales</h3>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                                            <XAxis dataKey="date" stroke="#94a3b8" tickFormatter={(tick) => new Date(tick).getDate()} />
+                                            <YAxis stroke="#94a3b8" tickFormatter={(tick) => formatCurrency(tick, 0)} />
+                                            <Tooltip 
+                                                cursor={{ fill: 'rgba(255,255,255,0.1)' }}
+                                                formatter={(value) => formatCurrency(value, 0)}
+                                                labelFormatter={(label) => `Date: ${formatDate(label)}`}
+                                                contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px' }}
+                                                itemStyle={{ color: '#e2e8f0' }}
+                                            />
+                                            <Bar dataKey="sales" fill="var(--color-primary)" />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                <div className="glass p-6 rounded-2xl border border-slate-800 h-80">
+                                    <h3 className="font-bold text-lg mb-4 text-[var(--color-text-light)]">Daily Expenses</h3>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                                            <XAxis dataKey="date" stroke="#94a3b8" tickFormatter={(tick) => new Date(tick).getDate()} />
+                                            <YAxis stroke="#94a3b8" tickFormatter={(tick) => formatCurrency(tick, 0)} />
+                                            <Tooltip 
+                                                cursor={{ fill: 'rgba(255,255,255,0.1)' }}
+                                                formatter={(value) => formatCurrency(value, 0)}
+                                                labelFormatter={(label) => `Date: ${formatDate(label)}`}
+                                                contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px' }}
+                                                itemStyle={{ color: '#e2e8f0' }}
+                                            />
+                                            <Bar dataKey="expenses" fill="#ef4444" />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                            
+                            <div className="glass p-6 rounded-2xl border border-slate-800">
+                                <h3 className="font-bold text-lg mb-4 text-[var(--color-text-light)]">Sales History ({formatDate(selectedDate)})</h3>
+                                <div className="space-y-3">
+                                    {filteredSales.length === 0 ? <p className="text-[var(--color-text-dark)] text-sm italic">No sales found for this date.</p> : filteredSales.map(s => (
+                                        <div key={s.id} className="flex justify-between items-center py-3 border-b border-slate-800 last:border-0">
+                                            <div>
+                                                <p className="font-bold text-[var(--color-text-light)] text-sm">{s.stylist}</p>
+                                                <p className="text-xs text-[var(--color-text-dark)]">{new Date(s.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} • {s.services.length} items</p>
+                                            </div>
                                             <div className="flex items-center gap-3">
-                                                <span className="text-xs text-[var(--color-primary)] font-bold">{formatCurrency(s.price)}</span>
-                                                <button onClick={() => deleteDoc(doc(db, DB_PREFIX + 'services', s.id))} className="text-slate-600 hover:text-rose-500 transition-colors"><Trash2 size={14}/></button>
+                                                <p className="font-bold text-emerald-400">{formatCurrency(s.total)}</p>
+                                                <button onClick={() => deleteDoc(doc(db, DB_PREFIX + 'sales', s.id))} className="text-slate-600 hover:text-rose-500 transition-colors"><Trash2 size={14}/></button>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                             </div>
+                        </div>
+                    )}
 
-                            <div className="glass p-6 rounded-3xl border border-slate-800">
-                                <h3 className="font-bold text-lg text-[var(--color-text-light)] mb-4 flex items-center gap-2"><User className="text-[var(--color-secondary)]"/> Add Staff</h3>
-                                <form onSubmit={handleAddStaff} className="flex gap-2 mb-4">
-                                    <input name="name" required placeholder="Staff Name" className="flex-1 bg-[var(--color-background)] border-0 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[var(--color-secondary)] text-[var(--color-text-light)] placeholder:text-[var(--color-text-dark)]" />
-                                    <button className="bg-[var(--color-secondary)] text-slate-900 p-3 rounded-xl font-bold hover:bg-teal-500 transition-colors"><Plus size={20}/></button>
+                    {view === 'expenses' && (
+                        <div className="p-6 md:p-10 pt-6 overflow-y-auto max-w-2xl mx-auto w-full pb-24">
+                            <div className="glass p-6 rounded-3xl border border-slate-800 mb-8">
+                                <h3 className="font-bold text-lg text-white mb-4 flex items-center gap-2"><Wallet className="text-rose-500"/> Add Expense</h3>
+                                <form onSubmit={handleAddExpense} className="flex gap-2 mb-4">
+                                    <input name="name" required placeholder="Description (e.g. Tea, Bill)" className="flex-1 bg-[var(--color-background)] border-0 rounded-xl p-3 text-sm focus:ring-2 focus:ring-rose-500 text-[var(--color-text-light)] placeholder:text-[var(--color-text-dark)]" />
+                                    <input name="amount" type="number" required placeholder="Amount" className="w-24 bg-[var(--color-background)] border-0 rounded-xl p-3 text-sm focus:ring-2 focus:ring-rose-500 text-[var(--color-text-light)] placeholder:text-[var(--color-text-dark)]" />
+                                    <button className="bg-rose-500 text-white p-3 rounded-xl font-bold hover:bg-rose-600 transition-colors"><Plus size={20}/></button>
                                 </form>
-                                <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                                    {staff.map(s => (
-                                        <div key={s.id} className="flex justify-between items-center bg-[var(--color-surface)]/50 p-3 rounded-xl border border-slate-800/50">
-                                            <span className="text-sm font-medium text-[var(--color-text-light)]">{s.name}</span>
-                                            <button onClick={() => deleteDoc(doc(db, DB_PREFIX + 'staff', s.id))} className="text-slate-600 hover:text-rose-500 transition-colors"><Trash2 size={14}/></button>
+                                <p className="text-xs text-[var(--color-text-dark)]">* Expenses added will be for: <span className="text-[var(--color-text-light)] font-bold">{formatDate(selectedDate)}</span></p>
+                            </div>
+                            
+                            <div className="space-y-3">
+                                <h3 className="text-slate-500 text-sm font-bold uppercase tracking-wider mb-2">Expenses for {formatDate(selectedDate)}</h3>
+                                {filteredExpenses.length === 0 ? (
+                                    <p className="text-slate-600 text-center py-8">No expenses recorded for this date.</p>
+                                ) : (
+                                    filteredExpenses.map(e => (
+                                        <div key={e.id} className="glass p-4 rounded-2xl flex justify-between items-center border border-slate-800/50">
+                                            <span className="font-medium text-slate-200">{e.description}</span>
+                                            <div className="flex items-center gap-3">
+                                                <span className="font-bold text-rose-400">{formatCurrency(e.amount)}</span>
+                                                <button onClick={() => deleteDoc(doc(db, DB_PREFIX + 'expenses', e.id))} className="text-slate-600 hover:text-rose-500"><Trash2 size={16}/></button>
+                                            </div>
                                         </div>
-                                    ))}
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {view === 'manage' && isPinVerified && (
+                        <div className="p-6 md:p-10 overflow-y-auto max-w-2xl mx-auto w-full pb-24">
+                            <div className="space-y-8">
+                                <div className="glass p-6 rounded-3xl border border-slate-800">
+                                    <h3 className="font-bold text-lg text-white mb-4 flex items-center gap-2"><Lock className="text-yellow-500"/> PIN Security</h3>
+                                    <p className="text-slate-400 text-sm mb-4">Manage the security PIN for the application. Current PIN status: {pinSetting ? <span className="text-emerald-400">Set</span> : <span className="text-rose-400">Not Set</span>}</p>
+                                    <button 
+                                        onClick={() => setShowPinSetup(true)}
+                                        className="bg-yellow-500 text-slate-900 py-3 px-6 rounded-xl font-bold text-sm hover:bg-yellow-400 transition-colors flex items-center gap-2"
+                                    >
+                                        <Unlock size={18}/> {pinSetting ? "Change PIN" : "Set PIN"}
+                                    </button>
+                                </div>
+
+                                <div className="glass p-6 rounded-3xl border border-slate-800">
+                                    <h3 className="font-bold text-lg text-[var(--color-text-light)] mb-4 flex items-center gap-2"><Scissors className="text-[var(--color-primary)]"/> Add Service</h3>
+                                    <form onSubmit={handleAddService} className="flex gap-2 mb-4">
+                                        <input name="name" required placeholder="Name" className="flex-1 bg-[var(--color-background)] border-0 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[var(--color-primary)] text-[var(--color-text-light)] placeholder:text-[var(--color-text-dark)]" />
+                                        <input name="price" type="number" required placeholder="Price" className="w-24 bg-[var(--color-background)] border-0 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[var(--color-primary)] text-[var(--color-text-light)] placeholder:text-[var(--color-text-dark)]" />
+                                        <button className="bg-[var(--color-primary)] text-slate-900 p-3 rounded-xl font-bold hover:bg-yellow-400 transition-colors"><Plus size={20}/></button>
+                                    </form>
+                                    <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                                        {services.map(s => (
+                                            <div key={s.id} className="flex justify-between items-center bg-[var(--color-surface)]/50 p-3 rounded-xl border border-slate-800/50">
+                                                <span className="text-sm font-medium text-[var(--color-text-light)]">{s.name}</span>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-xs text-[var(--color-primary)] font-bold">{formatCurrency(s.price)}</span>
+                                                    <button onClick={() => deleteDoc(doc(db, DB_PREFIX + 'services', s.id))} className="text-slate-600 hover:text-rose-500 transition-colors"><Trash2 size={14}/></button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="glass p-6 rounded-3xl border border-slate-800">
+                                    <h3 className="font-bold text-lg text-[var(--color-text-light)] mb-4 flex items-center gap-2"><User className="text-[var(--color-secondary)]"/> Add Staff</h3>
+                                    <form onSubmit={handleAddStaff} className="flex gap-2 mb-4">
+                                        <input name="name" required placeholder="Staff Name" className="flex-1 bg-[var(--color-background)] border-0 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[var(--color-secondary)] text-[var(--color-text-light)] placeholder:text-[var(--color-text-dark)]" />
+                                        <button className="bg-[var(--color-secondary)] text-slate-900 p-3 rounded-xl font-bold hover:bg-teal-500 transition-colors"><Plus size={20}/></button>
+                                    </form>
+                                    <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                                        {staff.map(s => (
+                                            <div key={s.id} className="flex justify-between items-center bg-[var(--color-surface)]/50 p-3 rounded-xl border border-slate-800/50">
+                                                <span className="text-sm font-medium text-[var(--color-text-light)]">{s.name}</span>
+                                                <button onClick={() => deleteDoc(doc(db, DB_PREFIX + 'staff', s.id))} className="text-slate-600 hover:text-rose-500 transition-colors"><Trash2 size={14}/></button>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                )}
-            </main>
+                    )}
+                </main>
 
-            {/* INVOICE MODAL */}
-            {showInvoice && <InvoiceModal sale={showInvoice} onClose={() => setShowInvoice(null)} salonInfo={{ name: "Rehman Salon", address: "Main Market, City", phone: "0300-1234567" }} />}
-        </div>
+                {/* INVOICE MODAL */}
+                {showInvoice && <InvoiceModal sale={showInvoice} onClose={() => setShowInvoice(null)} salonInfo={{ name: "Rehman Salon", address: "Main Market, City", phone: "0300-1234567" }} />}
+            </div>
         </ToastProvider>
     );
 };

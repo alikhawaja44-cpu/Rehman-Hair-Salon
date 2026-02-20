@@ -16,8 +16,9 @@
     {
       "imports": {
         "react": "https://esm.sh/react@18.2.0",
-        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-        "lucide-react": "https://esm.sh/lucide-react@0.263.1",
+        "react-dom": "https://esm.sh/react-dom@18.2.0?deps=react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client?deps=react@18.2.0",
+        "lucide-react": "https://esm.sh/lucide-react@0.263.1?deps=react@18.2.0",
         "recharts": "https://esm.sh/recharts@2.7.2?deps=react@18.2.0,react-dom@18.2.0",
         "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
         "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js"
@@ -69,6 +70,6 @@
     
     <!-- 5. Main Application Script -->
     <!-- Renamed to force fresh load -->
-    <script type="text/babel" data-type="module" src="./SalonApp.js"></script>
+    <script type="text/babel" data-type="module" src="./SalonApp.js?v=2"></script>
 </body>
 </html>

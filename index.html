@@ -4,8 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rehman Hair Salon</title>
-    <link href="./dist/index.css" rel="stylesheet">
+    
+    <!-- Tailwind CSS (via CDN for simplicity) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Import Map for React & Dependencies -->
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.263.1",
+        "recharts": "https://esm.sh/recharts@2.7.2",
+        "firebase/app": "https://esm.sh/firebase@10.8.0/app",
+        "firebase/firestore": "https://esm.sh/firebase@10.8.0/firestore"
+      }
+    }
+    </script>
+    
+    <!-- Babel for in-browser JSX transpilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
         :root {
@@ -23,24 +44,39 @@
             line-height: 1.6;
         }
         .glass { 
-            background: rgba(30, 41, 59, 0.7); /* slate-800 with transparency */
-            backdrop-filter: blur(16px); /* slightly more blur */
-            border: 1px solid rgba(255, 255, 255, 0.08); /* slightly more visible border */
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3); /* subtle shadow */
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
         }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--color-surface); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--color-primary); }
 
-        /* General focus styles for accessibility */
+        /* Focus Styles */
         *:focus {
             outline: 2px solid var(--color-primary);
             outline-offset: 2px;
             border-radius: 4px;
+        }
+        
+        @media print {
+            body * { visibility: hidden; }
+            #printable-area, #printable-area * { visibility: visible; }
+            #printable-area { 
+                position: absolute; left: 0; top: 0; width: 100%; 
+                margin: 0; padding: 0; background: white; color: black;
+            }
         }
     </style>
 </head>
 <body>
     <div id="root"></div>
     
-    <!-- Load the built App.js from the dist folder -->
-    <script type="module" src="./dist/App.js"></script>
+    <!-- Main App Script (Babel compiled in-browser) -->
+    <script type="text/babel" data-type="module" src="./App.js"></script>
 </body>
 </html>

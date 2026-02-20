@@ -708,6 +708,7 @@ const App = () => {
             {/* INVOICE MODAL */}
             {showInvoice && <InvoiceModal sale={showInvoice} onClose={() => setShowInvoice(null)} salonInfo={{ name: "Rehman Salon", address: "Main Market, City", phone: "0300-1234567" }} />}
         </div>
+        </ToastProvider>
     );
 };
 

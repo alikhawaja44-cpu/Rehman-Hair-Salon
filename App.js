@@ -697,5 +697,18 @@ const App = () => {
     );
 };
 
-const root = createRoot(document.getElementById('root'));
-root.render(<App />);
+const init = () => {
+    const container = document.getElementById('root');
+    if (container) {
+        const root = createRoot(container);
+        root.render(<App />);
+    } else {
+        console.error("Target container 'root' not found");
+    }
+};
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
